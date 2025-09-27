@@ -28,8 +28,6 @@
                         <label for="agent-type">Agent Type:</label>
                         <select id="agent-type">
                             <option value="dqn">DQN</option>
-                            <option value="q_learning">Q-Learning</option>
-                            <option value="a2c">A2C</option>
                         </select>
                     </div>
                     <div class="config-item">
@@ -70,6 +68,14 @@
                     <div class="metric-item">
                         <span class="metric-label">Avg Response Time</span>
                         <span id="avg-response-time" class="metric-value">0ms</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">p95 Response Time</span>
+                        <span id="p95-response-time" class="metric-value">0ms</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">p99 Response Time</span>
+                        <span id="p99-response-time" class="metric-value">0ms</span>
                     </div>
                     <div class="metric-item">
                         <span class="metric-label">Throughput</span>

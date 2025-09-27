@@ -106,12 +106,14 @@ class ServerSimulator:
             self.failed_requests += 1
             return False
             
-        # Add request to queue
+        # Add request to queue (store both seconds and ms for consistency)
+        processing_time_ms = self._calculate_processing_time(request_size)
         request = {
             'id': request_id,
             'size': request_size,
             'arrival_time': time.time(),
-            'processing_time': self._calculate_processing_time(request_size)
+            'processing_time': processing_time_ms,       # kept in ms for metrics
+            'processing_time_s': processing_time_ms / 1000.0  # seconds for simulation clock
         }
         
         self.request_queue.append(request)
@@ -134,7 +136,8 @@ class ServerSimulator:
         
         # Process active requests
         for request in self.processing_requests[:]:
-            if current_time - request['start_time'] >= request['processing_time']:
+            # Compare using seconds to match environment clock
+            if current_time - request['start_time'] >= request['processing_time_s']:
                 # Request completed
                 self.processing_requests.remove(request)
                 self.active_requests -= 1

@@ -21,7 +21,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from environment import LoadBalancerEnv, LoadBalancingAlgorithm
-from agents import QLearningAgent, DQNAgent, A2CAgent
+from agents import DQNAgent
 
 
 # Global variables for storing training state
@@ -39,7 +39,7 @@ training_state = {
 
 class TrainingConfig(BaseModel):
     """Configuration for training"""
-    agent_type: str = "dqn"  # "q_learning", "dqn", "a2c"
+    agent_type: str = "dqn"
     num_episodes: int = 1000
     num_servers: int = 5
     max_requests: int = 1000
@@ -123,12 +123,8 @@ async def start_training(config: TrainingConfig):
         state_size = env.observation_space.shape[0]
         action_size = env.action_space.n
         
-        if config.agent_type == "q_learning":
-            agent = QLearningAgent(state_size, action_size)
-        elif config.agent_type == "dqn":
+        if config.agent_type == "dqn":
             agent = DQNAgent(state_size, action_size, learning_rate=config.learning_rate)
-        elif config.agent_type == "a2c":
-            agent = A2CAgent(state_size, action_size, learning_rate=config.learning_rate)
         else:
             raise HTTPException(status_code=400, detail=f"Unknown agent type: {config.agent_type}")
         
@@ -219,29 +215,18 @@ async def train_agent(config: TrainingConfig):
         episode_reward = 0
         episode_length = 0
         
-        # For A2C, we need to collect episode data
-        if config.agent_type == "a2c":
-            states, actions, rewards, log_probs = [], [], [], []
+        # DQN: step-wise updates
         
         done = False
         while not done:
             # Choose action
-            if config.agent_type == "a2c":
-                action, log_prob = agent.choose_action(state)
-                states.append(state)
-                actions.append(action)
-                log_probs.append(log_prob)
-            else:
-                action = agent.choose_action(state)
+            action = agent.choose_action(state)
             
             # Take action
             next_state, reward, done, info = env.step(action)
             
             # Learn
-            if config.agent_type == "a2c":
-                rewards.append(reward)
-            else:
-                agent.learn(state, action, reward, next_state, done)
+            agent.learn(state, action, reward, next_state, done)
             
             state = next_state
             episode_reward += reward
@@ -258,9 +243,7 @@ async def train_agent(config: TrainingConfig):
                 'server_utilizations': info['server_utilizations']
             }
         
-        # Learn for A2C (episode-based)
-        if config.agent_type == "a2c":
-            agent.learn(states, actions, rewards, log_probs, done)
+        # No episode-based learning needed for DQN
         
         # Update agent epsilon
         if hasattr(agent, 'update_epsilon'):

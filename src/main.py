@@ -16,7 +16,7 @@ from typing import Dict, List, Any
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from environment import LoadBalancerEnv, LoadBalancingAlgorithm
-from agents import QLearningAgent, DQNAgent, A2CAgent
+from agents import DQNAgent
 from utils.metrics import calculate_metrics, compare_algorithms
 from utils.visualization import plot_training_progress, plot_comparison
 
@@ -62,28 +62,13 @@ def train_agent(
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.n
     
-    if agent_type == "q_learning":
-        agent = QLearningAgent(
-            state_size=state_size,
-            action_size=action_size,
-            learning_rate=learning_rate,
-            discount_factor=discount_factor,
-            epsilon=epsilon
-        )
-    elif agent_type == "dqn":
+    if agent_type == "dqn":
         agent = DQNAgent(
             state_size=state_size,
             action_size=action_size,
             learning_rate=learning_rate,
             discount_factor=discount_factor,
             epsilon=epsilon
-        )
-    elif agent_type == "a2c":
-        agent = A2CAgent(
-            state_size=state_size,
-            action_size=action_size,
-            learning_rate=learning_rate,
-            discount_factor=discount_factor
         )
     else:
         raise ValueError(f"Unknown agent type: {agent_type}")
@@ -247,7 +232,7 @@ def main():
     """Main training function"""
     parser = argparse.ArgumentParser(description="Train RL Load Balancer")
     parser.add_argument("--agent", type=str, default="dqn",
-                       choices=["q_learning", "dqn", "a2c"],
+                       choices=["dqn"],
                        help="Type of RL agent")
     parser.add_argument("--episodes", type=int, default=1000,
                        help="Number of training episodes")
@@ -292,7 +277,8 @@ def main():
     print("="*50)
     print(f"Agent Type: {results['agent_type'].upper()}")
     print(f"Training Time: {results['training_time']:.2f} seconds")
-    print(f"Final Average Reward: {sum(results['episode_rewards'][-100:]) / 100:.2f}")
+    window = min(100, len(results['episode_rewards']))
+    print(f"Final Average Reward: {sum(results['episode_rewards'][-window:]) / max(1, window):.2f}")
     print(f"Final Response Time: {results['final_metrics']['avg_response_time']:.1f}ms")
     print(f"Final Throughput: {results['final_metrics']['throughput']:.1f} req/s")
     print(f"Final Fairness: {results['final_metrics']['fairness']:.3f}")

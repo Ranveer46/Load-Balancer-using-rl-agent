@@ -29,6 +29,8 @@ class EnvironmentMetrics:
     completed_requests: int
     failed_requests: int
     avg_response_time: float
+    p95_response_time: float
+    p99_response_time: float
     throughput: float  # requests per second
     load_balance_fairness: float  # Jain's fairness index
     server_utilizations: List[float]
@@ -51,7 +53,8 @@ class LoadBalancerEnv(gym.Env):
         request_arrival_rate: float = 10.0,  # requests per second
         request_size_distribution: str = "exponential",  # exponential, uniform, normal
         enable_server_failures: bool = True,
-        enable_traffic_spikes: bool = True
+        enable_traffic_spikes: bool = True,
+        target_response_time_ms: float = 100.0
     ):
         super().__init__()
         
@@ -86,8 +89,10 @@ class LoadBalancerEnv(gym.Env):
         
         # Performance tracking
         self.response_times = []
+        self.response_times_ms = []  # keep raw ms for percentiles/SLA
         self.server_utilizations_history = []
         self.reward_history = []
+        self.target_response_time_ms = target_response_time_ms
         
         # Action and observation spaces
         self.action_space = gym.spaces.Discrete(num_servers)
@@ -235,6 +240,7 @@ class LoadBalancerEnv(gym.Env):
             for request in completed:
                 self.completed_requests += 1
                 self.response_times.append(request['processing_time'])
+                self.response_times_ms.append(request['processing_time'])
                 self.completed_requests_history.append(request)
                 
     def _calculate_reward(self, server_idx: int, request: Dict) -> float:
@@ -264,6 +270,15 @@ class LoadBalancerEnv(gym.Env):
         # Penalty for failed server
         if metrics.status == ServerStatus.FAILED:
             reward -= 20.0
+        
+        # SLA-focused shaping around target response time
+        resp_ms = server.avg_response_time
+        if resp_ms <= self.target_response_time_ms:
+            # Smooth bonus as we get below target
+            reward += 2.0 * (1.0 - (resp_ms / max(1.0, self.target_response_time_ms)))
+        else:
+            # Strong penalty past target
+            reward -= (resp_ms - self.target_response_time_ms) / max(1.0, self.target_response_time_ms)
             
         return reward
         
@@ -300,6 +315,8 @@ class LoadBalancerEnv(gym.Env):
             'completed_requests': metrics.completed_requests,
             'failed_requests': metrics.failed_requests,
             'avg_response_time': metrics.avg_response_time,
+            'p95_response_time': metrics.p95_response_time,
+            'p99_response_time': metrics.p99_response_time,
             'throughput': metrics.throughput,
             'load_balance_fairness': metrics.load_balance_fairness,
             'server_utilizations': metrics.server_utilizations,
@@ -323,12 +340,18 @@ class LoadBalancerEnv(gym.Env):
             fairness = (sum(utilizations) ** 2) / (len(utilizations) * sum(u ** 2 for u in utilizations))
         else:
             fairness = 1.0
-            
+        
+        # Percentiles on ms list
+        p95 = float(np.percentile(self.response_times_ms, 95)) if self.response_times_ms else 0.0
+        p99 = float(np.percentile(self.response_times_ms, 99)) if self.response_times_ms else 0.0
+        
         return EnvironmentMetrics(
             total_requests=sum(m.total_requests for m in server_metrics),
             completed_requests=self.completed_requests,
             failed_requests=self.failed_requests,
             avg_response_time=np.mean(self.response_times) if self.response_times else 0.0,
+            p95_response_time=p95,
+            p99_response_time=p99,
             throughput=throughput,
             load_balance_fairness=fairness,
             server_utilizations=utilizations

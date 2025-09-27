@@ -129,6 +129,10 @@ class Dashboard {
         document.getElementById('total-requests').textContent = data.metrics.total_requests || 0;
         document.getElementById('avg-response-time').textContent = 
             `${(data.metrics.avg_response_time || 0).toFixed(1)}ms`;
+        document.getElementById('p95-response-time').textContent = 
+            `${(data.metrics.p95_response_time || 0).toFixed(1)}ms`;
+        document.getElementById('p99-response-time').textContent = 
+            `${(data.metrics.p99_response_time || 0).toFixed(1)}ms`;
         document.getElementById('throughput').textContent = 
             `${(data.metrics.throughput || 0).toFixed(1)} req/s`;
         document.getElementById('fairness').textContent = 
@@ -413,13 +417,13 @@ class Dashboard {
     
     async startTraining() {
         const config = {
-            agent_type: document.getElementById('agent-type').value,
+            agent_type: 'dqn',
             num_episodes: parseInt(document.getElementById('num-episodes').value),
             num_servers: parseInt(document.getElementById('num-servers').value),
             request_arrival_rate: parseFloat(document.getElementById('arrival-rate').value),
-            learning_rate: 0.001,
-            discount_factor: 0.95,
-            epsilon: 0.1
+            learning_rate: 0.0005,
+            discount_factor: 0.99,
+            epsilon: 0.2
         };
         
         try {
